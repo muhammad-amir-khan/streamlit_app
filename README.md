@@ -1,2 +1,3 @@
-# streamlit_app
-This repo is to contain the code for the streamlit mini app
+# Snowflake Table Catalog with Streamlit
+
+Ap to get data from our CA's datawarehouse
