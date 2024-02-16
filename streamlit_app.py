@@ -78,7 +78,7 @@ else:
         name=f"Within {distance_input} miles from {first_location_coords.loc[0,'Address']}"
     ))
 
-    # Add Closed deals to the map
+    # Add Closed deals to the map 
     fig.add_trace(go.Scattermapbox(
         lat=df_closed_deals['lat'],
         lon=df_closed_deals['lon'],
