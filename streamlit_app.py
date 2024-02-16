@@ -100,7 +100,7 @@ else:
         mapbox=dict(
             accesstoken='pk.eyJ1IjoiYWsxMzUyIiwiYSI6ImNsc2Q5dmdzdzBnNGsyanRkY3BmOXIydGIifQ.dVj-_EwangGrP_AClR6cEA',  # Make sure this is your correct Mapbox Access Token
             bearing=0,
-            style="satellite-streets",
+            #style="satellite-streets",
             center=dict(
                 lat=first_location_coords['lat'].mean(),
                 lon=first_location_coords['lon'].mean()
