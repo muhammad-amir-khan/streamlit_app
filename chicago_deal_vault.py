@@ -33,3 +33,52 @@ def process(df_clean_full,point_lat,point_lon):
     df_clean_full['distance_from_point'] = df_clean_full['distance_from_point'] * 0.621371
     df_clean_full.to_csv('df_filtered.csv',index=False)
     return df_clean_full
+
+def aggregate_addresses(df1, df2, df3):
+    """
+    Aggregates addresses from three DataFrames and identifies how many and which 
+    DataFrames each unique address appears in.
+    
+    Parameters:
+    - df1, df2, df3: DataFrames with an 'address' column.
+    
+    Returns:
+    - DataFrame with columns for each address, the count of DataFrames it appears in,
+      and boolean columns for its presence in each DataFrame.
+    """
+    
+    # Ensure a copy of the DataFrames is made to avoid altering the original ones
+    df1_copy = df1.copy()
+    df2_copy = df2.copy()
+    df3_copy = df3.copy()
+
+    # Add a source column to each DataFrame to indicate the original source
+    df1_copy['source'] = 'df1'
+    df2_copy['source'] = 'df2'
+    df3_copy['source'] = 'df3'
+    
+    # Concatenate addresses from all DataFrames
+    all_addresses = pd.concat([
+        df1_copy[['ADDRESS', 'source']],
+        df2_copy[['ADDRESS', 'source']],
+        df3_copy[['ADDRESS', 'source']]
+    ])
+    
+    # Group by address and aggregate to count occurrences and identify source DataFrames
+    aggregated = all_addresses.groupby('ADDRESS')['source'].agg([
+        ('count', 'size'),  # Count occurrences
+        ('source_set', lambda x: set(x))  # Identify source DataFrames
+    ]).reset_index()
+    
+    # Initialize the columns indicating presence in each DataFrame
+    aggregated['is_in_preforeclosure'] = aggregated['source_set'].apply(lambda x: 'df1' in x)
+    aggregated['is_in_probate'] = aggregated['source_set'].apply(lambda x: 'df2' in x)
+    aggregated['is_in_auction'] = aggregated['source_set'].apply(lambda x: 'df3' in x)
+    
+    # Drop the 'source_set' column as it's no longer needed
+    result = aggregated.drop(columns=['source_set'])
+    
+    return result
+
+# Assuming df1, df2, and df3 are your DataFrames
+# result_df = aggregate_addresses(df1, df2, df3)
