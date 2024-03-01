@@ -78,8 +78,6 @@ if uploaded_file is not None:
 ##################### FILE UPLOADING ENDS ###############################
 
 ################## LIST STACKING STARTS ###############################
-
-# Assuming you have a button or mechanism to upload or select dataframes (df1, df2, df3)
 if st.button('Create List Stacking'):
     df_pf = pd.read_csv('pfc.csv')
     df_pr = pd.read_csv('probate.csv')
@@ -87,17 +85,19 @@ if st.button('Create List Stacking'):
     df_pr.rename(columns={'Deceased_Address':'ADDRESS'},inplace=True)
 
     all_data = pd.concat([df_pf,df_pr,df_au],axis=0)
-    
+    all_data.to_csv('all_data.csv')
     # Process addresses (replace df1, df2, df3 with actual DataFrames)
     result_df = aggregate_addresses(df_pf[['ADDRESS']],df_pr[['ADDRESS']],df_au[['ADDRESS']])
     # Filter out addresses that are in at least two of the files
     result_df = result_df[result_df['sum'] >= 2]
+    result_df = result_df.drop_duplicates(subset=['ADDRESS'],keep='first')
     result_df = result_df.merge(all_data[['ADDRESS','CITY']],on=['ADDRESS'])
+    result_df = result_df.drop_duplicates(subset=['ADDRESS'],keep='first')
     result_df.drop(columns = ['index','sum','count'],inplace=True)
+    result_df.drop_duplicates(subset=['ADDRESS'],keep='first',inplace=True)
     #result_df.drop(columns={'count'},inplace=True)
     # Show the filtered DataFrame in the app (optional)
     st.write('Addresses in at Least Two Files:', result_df)
-
 ################### LIST STACKING ENDS ######################################
     
 df['FILING_DATE_FORECLOSURE'] = pd.to_datetime(df['FILING_DATE_FORECLOSURE']).dt.date
