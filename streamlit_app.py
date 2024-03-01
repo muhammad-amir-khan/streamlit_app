@@ -11,10 +11,10 @@ st.header('Chicago Deal Vault Data')
 
 
 # Load Files
-df = pd.read_csv('preforeclosure.csv')
+df = pd.read_csv('pfc.csv')
 df_probate = pd.read_csv('probate.csv')
 df_closed_deals = pd.read_csv('closed_deals.csv')
-df_auctions = pd.read_csv('auctions.csv')
+df_auctions = pd.read_csv('auction.csv')
 
 if 'Deceased_Address' in df_probate.columns:
     df_probate.rename(columns={'Deceased_Address':'ADDRESS'},inplace=True)
@@ -41,7 +41,7 @@ if uploaded_file is not None:
         df_pfc_new = pd.read_excel('pfc.xlsx',sheet_name='Data',skiprows=11)
         process_new_data(df_pfc_new,convert_address=True,data='pfc')
         
-        df = pd.read_csv('preforeclosure.csv')
+        df = pd.read_csv('pfc.csv')
 
     elif uploaded_file.name.lower() == 'auct.xlsx':
         with open(os.path.join(os.getcwd(), uploaded_file.name), "wb") as f:
@@ -81,9 +81,9 @@ if uploaded_file is not None:
 
 # Assuming you have a button or mechanism to upload or select dataframes (df1, df2, df3)
 if st.button('Create List Stacking'):
-    df_pf = pd.read_csv('preforeclosure.csv')
+    df_pf = pd.read_csv('pfc.csv')
     df_pr = pd.read_csv('probate.csv')
-    df_au = pd.read_csv('auctions.csv')
+    df_au = pd.read_csv('auction.csv')
     df_pr.rename(columns={'Deceased_Address':'ADDRESS'},inplace=True)
 
     all_data = pd.concat([df_pf,df_pr,df_au],axis=0)
@@ -137,7 +137,7 @@ else:
     close_to_point = df_new['distance_from_point'] <= distance_input
     point_lat_lon = [first_location_coords.loc[0,'lat'],first_location_coords.loc[0,'lon']]
 
-    ################ Download Map Data as CSV ##########################################
+    ################ Download Map Data as CSV Starts ##########################################
     def convert_df_to_csv(df):
     # IMPORTANT: Cache the conversion to prevent computation on every rerun
         return df.to_csv().encode('utf-8')
@@ -150,7 +150,7 @@ else:
     mime='text/csv',
     )
     
-################ Download Map Data as CSV ##########################################
+    ################ Download Map Data as CSV Ends   ###########################################
 
 
 # Create figure
