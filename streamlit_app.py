@@ -1,37 +1,100 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from chicago_deal_vault import process, aggregate_addresses
+from chicago_deal_vault import process, aggregate_addresses, process_new_data
 from io import StringIO
+import os, time
 
 st.set_page_config(page_title="Chicago Deal Vault Data", layout="wide")
-st.header('Chicago PreForeClosure Data')
-# function to send the email
-def send_email():
-     st.sidebar.text("Email Sent \U0001F603")
+st.header('Chicago Deal Vault Data')
+
 
 
 # Load Files
 df = pd.read_csv('preforeclosure.csv')
-df_probate = pd.read_excel('probate.xlsx',sheet_name='Data',skiprows=11)
+df_probate = pd.read_csv('probate.csv')
 df_closed_deals = pd.read_csv('closed_deals.csv')
-df_auctions = pd.read_excel('auctions.xlsx',sheet_name='Data',skiprows=11)
-df_probate.rename(columns={'Deceased_Address':'ADDRESS'},inplace=True)
+df_auctions = pd.read_csv('auctions.csv')
 
-################## LIST STACKING STARTS ##############################
-def convert_df_to_csv(df):
-    # Convert DataFrame to CSV
-    output = StringIO()
-    df.to_csv(output, index=False)
-    return output.getvalue()
+if 'Deceased_Address' in df_probate.columns:
+    df_probate.rename(columns={'Deceased_Address':'ADDRESS'},inplace=True)
+if 'Deceased_City' in df_probate.columns:
+    df_probate.rename(columns={'Deceased_City':'CITY'},inplace=True)
+if 'Deceased_Zip' in df_probate.columns:
+    df_probate.rename(columns={'Deceased_Zip':'ZIP'},inplace=True)
+
+message = st.empty()
+##################### FILE UPLOADING STARTS ###########################
+st.warning('The file to be uploaded must be named as pfc.xlsx for preforeclosure, auct.xlsx for auctions, prob.xlsx for probate \
+           and criteria.xlsx for Criteria file (no CSV format). Please upload one file at a time')
+uploaded_file = st.sidebar.file_uploader("Upload File")
+
+if uploaded_file is not None:
+    # Check the file name
+    if uploaded_file.name.lower() == 'pfc.xlsx':
+        # Save the file to the current directory
+        with open(os.path.join(os.getcwd(), uploaded_file.name), "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        message.success("Perforeclosure File uploaded successfully!")
+        time.sleep(2)
+        message.text('')
+        df_pfc_new = pd.read_excel('pfc.xlsx',sheet_name='Data',skiprows=11)
+        process_new_data(df_pfc_new,convert_address=True,data='pfc')
+        
+        df = pd.read_csv('preforeclosure.csv')
+
+    elif uploaded_file.name.lower() == 'auct.xlsx':
+        with open(os.path.join(os.getcwd(), uploaded_file.name), "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        message.success("Auctions File uploaded successfully!")
+        time.sleep(2)
+        message.text('')
+        df_auctions_new = pd.read_excel('auct.xlsx',sheet_name='Data',skiprows=11)
+        message.text('Processing uploaded data...')
+        process_new_data(df_auctions_new,convert_address=False,data='auct')
+        message.text('All good!')
+
+    elif uploaded_file.name.lower() == 'prob.xlsx':
+        with open(os.path.join(os.getcwd(), uploaded_file.name), "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        message.success("Probate File uploaded successfully!")
+        time.sleep(2)
+        message.text('')
+        df_probate_new = pd.read_excel('prob.xlsx',sheet_name='Data',skiprows=11)
+        if 'Deceased_Address' in df_probate_new.columns:
+            df_probate_new.rename(columns={'Deceased_Address':'ADDRESS'},inplace=True)
+        if 'Deceased_City' in df_probate_new.columns:
+            df_probate_new.rename(columns={'Deceased_City':'CITY'},inplace=True)
+        if 'Deceased_Zip' in df_probate_new.columns:
+            df_probate_new.rename(columns={'Deceased_Zip':'ZIP'},inplace=True)
+        message.text('Processing uploaded data...')
+        process_new_data(df_probate_new,convert_address=False,data='prob')
+        message.text('All good!')
+        
+    else:
+        # Inform the user that the file name is different
+        st.error("The file name is different. Please upload a file named 'pfc.xlsx'.")
+
+##################### FILE UPLOADING ENDS ###############################
+
+################## LIST STACKING STARTS ###############################
 
 # Assuming you have a button or mechanism to upload or select dataframes (df1, df2, df3)
 if st.button('Create List Stacking'):
+    df_pf = pd.read_csv('preforeclosure.csv')
+    df_pr = pd.read_csv('probate.csv')
+    df_au = pd.read_csv('auctions.csv')
+    df_pr.rename(columns={'Deceased_Address':'ADDRESS'},inplace=True)
+
+    all_data = pd.concat([df_pf,df_pr,df_au],axis=0)
+    
     # Process addresses (replace df1, df2, df3 with actual DataFrames)
-    result_df = aggregate_addresses(df[['ADDRESS']],df_probate[['ADDRESS']],df_auctions[['ADDRESS']])
+    result_df = aggregate_addresses(df_pf[['ADDRESS']],df_pr[['ADDRESS']],df_au[['ADDRESS']])
     # Filter out addresses that are in at least two of the files
-    result_df = result_df[result_df['count'] >= 2]
-    result_df.drop(columns={'count'},inplace=True)
+    result_df = result_df[result_df['sum'] >= 2]
+    result_df = result_df.merge(all_data[['ADDRESS','CITY']],on=['ADDRESS'])
+    result_df.drop(columns = ['index','sum','count'],inplace=True)
+    #result_df.drop(columns={'count'},inplace=True)
     # Show the filtered DataFrame in the app (optional)
     st.write('Addresses in at Least Two Files:', result_df)
 
@@ -54,18 +117,11 @@ start_date = st.sidebar.date_input('Please select start date',
 end_date = st.sidebar.date_input('Please select end date',
                                  value=df['FILING_DATE_FORECLOSURE'].max(),
                                  format="MM/DD/YYYY")
-# email sending part
-if st.sidebar.button('Send Email'):
-    send_email()
-else:
-    print('')
 
 # User Input to select the County
 location = st.sidebar.selectbox(
     'Please select a County',
     ('Chicago', 'Suburbs', 'DuPage'))
-df = df[df['Location']==location]
-
 
 df = df[(df['FILING_DATE_FORECLOSURE'] >= start_date) & (df['FILING_DATE_FORECLOSURE'] <= end_date)]
 if len(df) < 1:
@@ -81,6 +137,20 @@ else:
     close_to_point = df_new['distance_from_point'] <= distance_input
     point_lat_lon = [first_location_coords.loc[0,'lat'],first_location_coords.loc[0,'lon']]
 
+    ################ Download Map Data as CSV ##########################################
+    def convert_df_to_csv(df):
+    # IMPORTANT: Cache the conversion to prevent computation on every rerun
+        return df.to_csv().encode('utf-8')
+
+
+    st.download_button(
+    label="Download data as CSV",
+    data=convert_df_to_csv(df_new[df_new['distance_from_point'] <= distance_input]),
+    file_name='map_data.csv',
+    mime='text/csv',
+    )
+    
+################ Download Map Data as CSV ##########################################
 
 
 # Create figure
