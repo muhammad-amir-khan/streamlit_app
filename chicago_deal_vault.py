@@ -17,7 +17,7 @@ def geocode_address(address):
 
 def haversine(lon1, lat1, lon2, lat2):
         """
-        Calculate the great circle distance in kilometers between two points 
+        Calculate the great circle distance in kilometers between two points
         on the earth (specified in decimal degrees)
         """
         # convert decimal degrees to radians 
@@ -47,7 +47,6 @@ def process(df_clean_full,point_lat,point_lon):
                                                                 canfield_lat_lon[0]), axis=1)
     
     # km to miles
-    #df_clean_full['distance_from_point'] = df_clean_full['distance_from_point'] * 0.621371
     df_clean_full.to_csv('df_filtered.csv',index=False)
     return df_clean_full
 
@@ -101,10 +100,9 @@ def aggregate_addresses(df1, df2, df3):
 
 # Assuming df1, df2, and df3 are your DataFrames
 # result_df = aggregate_addresses(df1, df2, df3)
-def process_new_data(df_pfc,convert_address=True,data='pfc'):
+def process_new_data(df_pfc,data='pfc'):
      #read new preforeclosure file
      df = df_pfc
-     df = df.sort_values(by=['CITY','ZIP']).reset_index().drop(columns=['index'])
 
      df_criteria_chicago = pd.read_excel('ctiretia.xlsx',sheet_name='Chicago')
      df_criteria_suburbs = pd.read_excel('ctiretia.xlsx',sheet_name='Cook Suburbs')
@@ -129,10 +127,11 @@ def process_new_data(df_pfc,convert_address=True,data='pfc'):
      df_merged_suburbs = df_criteria_suburbs[['City']].merge(df_suburbs,left_on=df_criteria_suburbs['City'].str.lower(), \
                           right_on=df_suburbs['CITY'].str.lower())
      df_merged_suburbs.drop(columns=['key_0','City'],inplace=True)
-     df_merged_suburbs = df_merged_suburbs.sort_values(by=['CITY'])
 
      # Comparing Chicago
      df_criteria_chicago = df_criteria_chicago[df_criteria_chicago['Yes/No']=='Yes']
+     df_chicago = df_chicago.dropna(subset=['ZIP'])
+     df_chicago = df_chicago['ZIP'].astype('float').astype('int')
      df_merged_chicago = df_criteria_chicago[['Zip']].merge(df_chicago,left_on=['Zip'],right_on=['ZIP'])
      df_merged_chicago.drop(columns=['Zip'],inplace=True)
      df_merged_chicago = df_merged_chicago.sort_values(by=['ZIP'])
@@ -141,10 +140,7 @@ def process_new_data(df_pfc,convert_address=True,data='pfc'):
      df_merged_dupage = df[df['ZIP'].isin(df_criteria_dupage['Zip'].unique())]
 
      # Combine All
-     #df_merged = df_merged_chicago.append(df_merged_dupage)
-     df_merged = pd.concat([df_merged_chicago,df_merged_dupage])
-     #df_merged = df_merged.append(df_criteria_suburbs)
-     df_merged = pd.concat([df_merged,df_criteria_suburbs])
+     df_merged = pd.concat([df_merged_chicago,df_merged_dupage,df_merged_suburbs])
 
      # Preparing Clean Data For Mapping
      df_merged_chicago['Location'] = 'Chicago'
@@ -152,28 +148,34 @@ def process_new_data(df_pfc,convert_address=True,data='pfc'):
      df_merged_suburbs['Location'] = 'Suburbs'
 
      #df_clean_full = df_merged_chicago.append(df_merged_dupage)
-     df_clean_full = pd.concat([df_merged_chicago,df_merged_dupage])
-     #df_clean_full = df_clean_full.append(df_merged_suburbs)
-     df_clean_full = pd.concat([df_clean_full,df_merged_suburbs])
+     df_clean_full = pd.concat([df_merged_chicago,df_merged_dupage,df_merged_suburbs])
 
      # Address to Lat, Lon
      df_clean_full['ZIP'] = df_clean_full['ZIP'].astype('str')
      df_clean_full['COMPLETE_ADDRESS'] = df_clean_full['ADDRESS'] +' ' + df_clean_full['CITY'] +', USA '+ df_clean_full['ZIP']
      
-     if convert_address:
-        df_clean_full['lat'], df_clean_full['lon'] = zip(*df_clean_full['COMPLETE_ADDRESS'].apply(geocode_address))
-     else:
-         df_clean_full['lat'] = 0.0
-         df_clean_full['lon'] = 0.0
+    
+     df_clean_full.dropna(subset=['ADDRESS'],inplace=True)
+     df_clean_full['lat'], df_clean_full['lon'] = zip(*df_clean_full['COMPLETE_ADDRESS'].apply(geocode_address))
 
-     df_clean_full = pd.concat([df_pfc,df_clean_full])
-     df_clean_full = df_clean_full.drop_duplicates(subset=['ADDRESS'],keep='last')
 
      if data == 'auct':
-        df_clean_full.to_csv('auctions.csv',index=False)
+        df_pfc = pd.read_csv('auction.csv')
+        df_clean_full['Type'] = 'Auction'
+        df_clean_full = pd.concat([df_pfc,df_clean_full])
+        df_clean_full = df_clean_full.drop_duplicates(subset=['ADDRESS'],keep='last')
+        df_clean_full.to_csv('auction.csv',index=False)
      elif data == 'prob':
-         df_clean_full.to_csv('probates.csv',index=False)
+         df_pfc = pd.read_csv('probate.csv')
+         df_clean_full['Type'] = 'Probate'
+         df_clean_full = pd.concat([df_pfc,df_clean_full])
+         df_clean_full = df_clean_full.drop_duplicates(subset=['ADDRESS'],keep='last')
+         df_clean_full.to_csv('probate.csv',index=False)
      else:
-         df_clean_full.to_csv('preforeclosure.csv',index=False)
+         df_pfc = pd.read_csv('pfc.csv')
+         df_clean_full['Type'] = 'Pre-Foreclosure'
+         df_clean_full = pd.concat([df_pfc,df_clean_full])
+         df_clean_full = df_clean_full.drop_duplicates(subset=['ADDRESS'],keep='last')
+         df_clean_full.to_csv('pfc.csv',index=False)
 
      return None
