@@ -104,6 +104,7 @@ if st.button('Create List Stacking'):
     df_pf = df_pf[df_pf['ADDRESS'].isin(list(result_df['ADDRESS']))]
     list_stacked_address = pd.concat([df_pf,df_au,df_pr])
     list_stacked_address.drop_duplicates(subset=['ADDRESS','Type'],keep='first',inplace=True)
+    print(list_stacked_address['Type    '])
     st.download_button(
     label="Download list stacking results",
     data=convert_df_to_csv(list_stacked_address),
